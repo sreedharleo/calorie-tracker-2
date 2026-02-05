@@ -1,16 +1,27 @@
 import React, { useState } from 'react';
+import { compressImage } from '../utils/imageUtils';
 
 const Analyzer = ({ onAnalyze, isLoading }) => {
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [bmi, setBmi] = useState('');
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
         const selected = e.target.files[0];
         if (selected) {
-            setFile(selected);
-            const objectUrl = URL.createObjectURL(selected);
-            setPreview(objectUrl);
+            try {
+                // Show local preview immediately using raw file for speed
+                const objectUrl = URL.createObjectURL(selected);
+                setPreview(objectUrl);
+
+                // Compress in background
+                const compressed = await compressImage(selected);
+                setFile(compressed);
+                console.log(`Original: ${selected.size}, Compressed: ${compressed.size}`);
+            } catch (error) {
+                console.error("Compression failed", error);
+                setFile(selected); // Fallback to original
+            }
         }
     };
 
