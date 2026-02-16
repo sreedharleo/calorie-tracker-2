@@ -33,8 +33,10 @@ Return ONLY valid JSON in the following format:
 
 {
   "food_identified": [
-    "food item 1",
-    "food item 2"
+    {
+      "name": "food item name",
+      "calories": number
+    }
   ],
   "nutrition_estimate": {
     "calories_kcal": number,

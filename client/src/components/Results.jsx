@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Results = ({ data }) => {
+const Results = ({ data, imagePreview }) => {
     if (!data) return null;
 
     const { food_identified, nutrition_estimate, health_tips } = data;
@@ -9,10 +9,29 @@ const Results = ({ data }) => {
         <div className="card">
             <h2 style={{ marginTop: 0 }}>Analysis Results</h2>
 
-            <div style={{ marginBottom: '1rem' }}>
-                {food_identified.map((item, idx) => (
-                    <span key={idx} className="tag">{item}</span>
-                ))}
+            {imagePreview && (
+                <div style={{ marginBottom: '1.5rem', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                    <img src={imagePreview} alt="Analyzed meal" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                </div>
+            )}
+
+            <div style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
+                <h3 style={{ fontSize: '1rem', color: '#64748b', marginBottom: '0.75rem' }}>Identified Items</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {food_identified.map((item, idx) => (
+                        <span key={idx} className="tag" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>{item.name}</span>
+                            <span style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                padding: '0.1rem 0.4rem',
+                                borderRadius: '4px',
+                                fontSize: '0.8em'
+                            }}>
+                                {item.calories} cal
+                            </span>
+                        </span>
+                    ))}
+                </div>
             </div>
 
             <div className="stat-grid">
