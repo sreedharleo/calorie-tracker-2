@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Analyzer from './components/Analyzer';
 import Results from './components/Results';
+import { compressImage } from './utils/imageUtils';
 
 function App() {
   const [result, setResult] = useState(null);
@@ -16,11 +17,14 @@ function App() {
     setResult(null);
     setImagePreview(URL.createObjectURL(imageFile));
 
-    const formData = new FormData();
-    formData.append('image', imageFile);
-    formData.append('bmi', bmi);
-
     try {
+      // Compress image before sending
+      const compressedBlob = await compressImage(imageFile);
+
+      const formData = new FormData();
+      formData.append('image', compressedBlob, 'image.jpg');
+      formData.append('bmi', bmi);
+
       // Connect to the backend server
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const response = await fetch(`${API_URL}/api/analyze`, {
