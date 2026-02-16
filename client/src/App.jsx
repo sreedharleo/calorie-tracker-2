@@ -8,9 +8,11 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [longLoading, setLongLoading] = useState(false);
 
   const handleAnalyze = async (imageFile, bmi) => {
     setLoading(true);
+    setLongLoading(false);
     setError(null);
     setLoading(true);
     setError(null);
@@ -43,8 +45,17 @@ function App() {
       setError('Failed to analyze the image. Is the backend running?');
     } finally {
       setLoading(false);
+      setLongLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    let timer;
+    if (loading) {
+      timer = setTimeout(() => setLongLoading(true), 5000);
+    }
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   return (
     <div style={{ textAlign: 'center' }}>
@@ -162,6 +173,19 @@ function App() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
             Our AI is processing the nutritional content...
           </p>
+
+          {longLoading && (
+            <p style={{
+              color: '#d97706',
+              fontSize: '0.85rem',
+              marginTop: '1rem',
+              background: 'rgba(251, 191, 36, 0.1)',
+              padding: '0.5rem',
+              borderRadius: '8px'
+            }}>
+              ⏳ The free server is waking up... this might take about a minute. Thanks for your patience!
+            </p>
+          )}
 
           <div style={{
             marginTop: '2rem',
