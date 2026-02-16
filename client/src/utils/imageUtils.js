@@ -6,7 +6,7 @@
  * @param {number} quality - JPEG quality between 0 and 1 (default: 0.7)
  * @returns {Promise<Blob>} - The compressed image blob
  */
-export const compressImage = (file, maxWidth = 800, quality = 0.6) => {
+export const compressImage = (file, maxWidth = 512, quality = 0.5) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);

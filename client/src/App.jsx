@@ -22,6 +22,8 @@ function App() {
     try {
       // Compress image before sending
       const compressedBlob = await compressImage(imageFile);
+      console.log(`Original size: ${imageFile.size / 1024} KB`);
+      console.log(`Compressed size: ${compressedBlob.size / 1024} KB`);
 
       const formData = new FormData();
       formData.append('image', compressedBlob, 'image.jpg');

@@ -37,7 +37,10 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
 
         // Connect to Gemini API
         console.log('Sending image to Gemini...');
+        const startTime = Date.now();
         const result = await analyzeImage(imageFile.buffer, imageFile.mimetype, bmi);
+        const duration = (Date.now() - startTime) / 1000;
+        console.log(`Gemini Analysis took ${duration} seconds`);
 
         console.log('Gemini Analysis result:', JSON.stringify(result, null, 2));
         res.json(result);
