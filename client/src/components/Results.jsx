@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Results = ({ data, imagePreview }) => {
+const Results = ({ data, imagePreview, onLog, isLoading, isLogged }) => {
     if (!data) return null;
 
     const { food_identified, nutrition_estimate, health_tips } = data;
@@ -61,8 +61,35 @@ const Results = ({ data, imagePreview }) => {
                     ))}
                 </ul>
             </div>
+
+            <button
+                onClick={() => !isLogged && onLog()}
+                disabled={isLoading || isLogged}
+                className={`btn ${isLogged ? 'btn-success' : 'btn-primary'}`}
+                style={{
+                    marginTop: '2rem',
+                    width: '100%',
+                    padding: '1rem',
+                    background: isLogged ? '#10B981' : 'var(--primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
+                }}
+            >
+                {isLoading ? 'Logging...' : isLogged ? (
+                    <>
+                        <span>✅</span> Meal Logged!
+                    </>
+                ) : (
+                    <>
+                        <span>📝</span> Log to Dashboard
+                    </>
+                )}
+            </button>
         </div>
     );
 };
+
 
 export default Results;

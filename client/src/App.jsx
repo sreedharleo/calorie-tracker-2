@@ -1,284 +1,223 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { supabase } from './supabaseClient';
 import Analyzer from './components/Analyzer';
 import Results from './components/Results';
+import Login from './components/Login';
+import Profile from './components/Profile';
+import Dashboard from './components/Dashboard';
+
+import Layout from './components/Layout';
+import Welcome from './components/Welcome';
 import { compressImage } from './utils/imageUtils';
 
-function App() {
+function Home() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [isLogged, setIsLogged] = useState(false);
   const [longLoading, setLongLoading] = useState(false);
+  const [serverStatus, setServerStatus] = useState('checking'); // checking, online, offline
+  const [userBMI, setUserBMI] = useState(null);
 
-  const handleAnalyze = async (imageFile, bmi) => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  // Fetch BMI from profile on load
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase.from('profiles').select('bmi').eq('id', user.id).single();
+        if (data && data.bmi) setUserBMI(data.bmi);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  // Wake up server on load
+  useEffect(() => {
+    const pingServer = async () => {
+      try {
+        const res = await fetch(`${API_URL}/`);
+        if (res.ok) setServerStatus('online');
+        else setServerStatus('offline');
+      } catch (e) {
+        setServerStatus('offline');
+      }
+    };
+    pingServer();
+  }, [API_URL]);
+
+  const handleAnalyze = async (imageFile, manualBmi) => {
+    // improved logic: use profile BMI if available, else manual
+    const bmiToUse = userBMI || manualBmi;
+
+    if (!bmiToUse) {
+      alert("Please update your profile with your height/weight or enter BMI manually.");
+      return;
+    }
+
     setLoading(true);
     setLongLoading(false);
     setError(null);
-    setLoading(true);
-    setError(null);
     setResult(null);
+    setIsLogged(false); // Reset logging state
     setImagePreview(URL.createObjectURL(imageFile));
 
     try {
-      // Compress image before sending
       const compressedBlob = await compressImage(imageFile);
-      console.log(`Original size: ${imageFile.size / 1024} KB`);
-      console.log(`Compressed size: ${compressedBlob.size / 1024} KB`);
-
       const formData = new FormData();
       formData.append('image', compressedBlob, 'image.jpg');
-      formData.append('bmi', bmi);
+      formData.append('bmi', bmiToUse);
 
-      // Connect to the backend server
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      // Get current session for token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const response = await fetch(`${API_URL}/api/analyze`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Analysis failed. Please try again.');
+        let errorMessage = 'Analysis failed.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // Response was not JSON
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       setResult(data);
     } catch (err) {
-      console.error(err);
-      setError('Failed to analyze the image. Is the backend running?');
+      setError(`Backend error: ${err.message}`);
     } finally {
       setLoading(false);
       setLongLoading(false);
     }
   };
 
-  React.useEffect(() => {
-    let timer;
-    if (loading) {
-      timer = setTimeout(() => setLongLoading(true), 5000);
+  const handleSaveMeal = async () => {
+    if (!result) return;
+
+    setSaveLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const response = await fetch(`${API_URL}/api/save`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          image_url: result.image_url,
+          food_identified: result.food_identified,
+          nutrition_estimate: result.nutrition_estimate
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to save meal.');
+      setIsLogged(true);
+    } catch (err) {
+      alert(`Error saving meal: ${err.message}`);
+    } finally {
+      setSaveLoading(false);
     }
+  };
+
+  // Timer for "Waking up server"
+  useEffect(() => {
+    let timer;
+    if (loading) timer = setTimeout(() => setLongLoading(true), 5000);
     return () => clearTimeout(timer);
   }, [loading]);
 
   return (
-    <div style={{ textAlign: 'center' }}>
-      {/* Header Section with Icon */}
-      <div style={{ marginBottom: '1rem' }}>
-        <div style={{
-          width: '80px',
-          height: '80px',
-          margin: '0 auto 1.5rem',
-          background: 'linear-gradient(135deg, #15803d 0%, #14532d 100%)',
-          borderRadius: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 8px 32px rgba(102, 126, 234, 0.4)',
-          animation: 'pulse 2s ease-in-out infinite'
-        }}>
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
-            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
-            <line x1="6" y1="1" x2="6" y2="4"></line>
-            <line x1="10" y1="1" x2="10" y2="4"></line>
-            <line x1="14" y1="1" x2="14" y2="4"></line>
-          </svg>
-        </div>
+    <div style={{ textAlign: 'center', paddingBottom: '2rem' }}>
 
-        <h1>Calorie Tracker</h1>
-
-        <p style={{
-          color: 'var(--text-secondary)',
-          marginBottom: '3rem',
-          fontSize: '1.1rem',
-          fontWeight: '500',
-          letterSpacing: '0.5px'
-        }}>
-          Your Nutrition Friend
-        </p>
-
-        {/* Feature badges */}
-        <div style={{
-          display: 'flex',
-          gap: '0.75rem',
-          justifyContent: 'center',
-          flexWrap: 'wrap',
-          marginBottom: '2rem'
-        }}>
-          <span style={{
-            padding: '0.5rem 1rem',
-            background: 'rgba(102, 126, 234, 0.1)',
-            border: '1px solid rgba(102, 126, 234, 0.3)',
-            borderRadius: '20px',
-            fontSize: '0.85rem',
-            color: 'var(--text-secondary)',
-            backdropFilter: 'blur(10px)'
-          }}>
-            ⚡ Instant Analysis
-          </span>
-          <span style={{
-            padding: '0.5rem 1rem',
-            background: 'rgba(240, 147, 251, 0.1)',
-            border: '1px solid rgba(240, 147, 251, 0.3)',
-            borderRadius: '20px',
-            fontSize: '0.85rem',
-            color: 'var(--text-secondary)',
-            backdropFilter: 'blur(10px)'
-          }}>
-            🎯 AI-Powered
-          </span>
-          <span style={{
-            padding: '0.5rem 1rem',
-            background: 'rgba(79, 172, 254, 0.1)',
-            border: '1px solid rgba(79, 172, 254, 0.3)',
-            borderRadius: '20px',
-            fontSize: '0.85rem',
-            color: 'var(--text-secondary)',
-            backdropFilter: 'blur(10px)'
-          }}>
-            📊 Detailed Insights
-          </span>
-        </div>
+      <div style={{ marginBottom: '2rem' }}>
+        {userBMI && <p style={{ color: 'var(--primary-dark)', fontWeight: 'bold', fontSize: '0.9rem' }}>Target: {userBMI} BMI Strategy</p>}
       </div>
 
-      {/* Main Content */}
-      {!result && !loading && (
-        <Analyzer onAnalyze={handleAnalyze} isLoading={loading} />
-      )}
+      {!result && !loading && <Analyzer onAnalyze={handleAnalyze} isLoading={loading} forceManualBmi={!userBMI} />}
 
       {/* Loading State */}
-      {loading && (
-        <div className="card" style={{
-          textAlign: 'center',
-          padding: '4rem 2rem'
-        }}>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            margin: '0 auto 1.5rem',
-            border: '4px solid rgba(21, 128, 61, 0.2)',
-            borderTopColor: '#15803d',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }}></div>
-
-          <h3 style={{
-            background: 'linear-gradient(135deg, #15803d 0%, #14532d 100%)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            color: 'transparent',
-            fontSize: '1.5rem',
-            marginBottom: '0.5rem'
-          }}>
-            Analyzing Your Meal
-          </h3>
-
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            Our AI is processing the nutritional content...
-          </p>
-
-          {longLoading && (
-            <p style={{
-              color: '#d97706',
-              fontSize: '0.85rem',
-              marginTop: '1rem',
-              background: 'rgba(251, 191, 36, 0.1)',
-              padding: '0.5rem',
-              borderRadius: '8px'
-            }}>
-              ⏳ The free server is waking up... this might take about a minute. Thanks for your patience!
-            </p>
-          )}
-
-          <div style={{
-            marginTop: '2rem',
-            padding: '1rem',
-            background: 'rgba(102, 126, 234, 0.1)',
-            borderRadius: '12px',
-            border: '1px solid rgba(102, 126, 234, 0.2)'
-          }}>
-            <p style={{
-              color: 'var(--text-secondary)',
-              fontSize: '0.85rem',
-              margin: 0
-            }}>
-              💡 Did you know? NutriScan uses advanced computer vision to identify food items and estimate portions
-            </p>
+      {
+        loading && (
+          <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+            <div style={{ width: '60px', height: '60px', margin: '0 auto 1.5rem', border: '4px solid rgba(21, 128, 61, 0.2)', borderTopColor: '#15803d', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            <h3>Analyzing Your Meal...</h3>
+            {longLoading && <p style={{ color: '#d97706', marginTop: '1rem' }}>⏳ The server is waking up... thanks for waiting!</p>}
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {/* Error State */}
-      {error && (
-        <div style={{
-          marginTop: '2rem',
-          padding: '1.5rem',
-          background: 'linear-gradient(135deg, rgba(245, 87, 108, 0.1) 0%, rgba(240, 147, 251, 0.1) 100%)',
-          color: '#d63031',
-          borderRadius: '16px',
-          border: '1px solid rgba(245, 87, 108, 0.3)',
-          backdropFilter: 'blur(10px)',
-          animation: 'shake 0.5s ease-in-out'
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚠️</div>
-          <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>Analysis Failed</div>
-          <div style={{ fontSize: '0.9rem', color: '#ff7675' }}>{error}</div>
-        </div>
-      )}
+      {error && <div style={{ color: 'red', marginTop: '2rem' }}>{error}</div>}
 
-      {/* Results */}
-      {result && (
-        <>
-          <Results data={result} imagePreview={imagePreview} />
-
-          <button
-            onClick={() => {
-              setResult(null);
-              setError(null);
-              setImagePreview(null);
-            }}
-            style={{
-              marginTop: '2rem',
-              background: 'transparent',
-              border: '2px solid rgba(102, 126, 234, 0.3)',
-              color: 'var(--text-secondary)',
-              backdropFilter: 'blur(10px)'
-            }}
-          >
-            <span style={{ marginRight: '0.5rem' }}>🔄</span>
-            Analyze Another Meal
-          </button>
-        </>
-      )}
+      {
+        result && (
+          <>
+            <Results
+              data={result}
+              imagePreview={imagePreview}
+              onLog={handleSaveMeal}
+              isLoading={saveLoading}
+              isLogged={isLogged}
+            />
+            <button onClick={() => { setResult(null); setError(null); setImagePreview(null); setIsLogged(false); }} style={{ marginTop: '2rem', padding: '1rem' }}>
+              🔄 Analyze Another Meal
+            </button>
+          </>
+        )
+      }
 
       {/* Footer */}
-      <div style={{
-        marginTop: '4rem',
-        paddingTop: '2rem',
-        borderTop: '1px solid rgba(102, 126, 234, 0.2)',
-        color: 'var(--text-secondary)',
-        fontSize: '0.85rem'
-      }}>
-        <p style={{ margin: '0.5rem 0' }}>
-          Powered by AI • Built for Health Professionals
-        </p>
-        <p style={{ margin: '0.5rem 0', opacity: 0.8 }}>
-          Results are estimates. Consult healthcare providers for medical advice.
-        </p>
+      <div style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid rgba(102, 126, 234, 0.2)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+        Status: <span style={{ color: serverStatus === 'online' ? 'green' : 'red' }}>●</span> {serverStatus}
       </div>
+    </div >
+  );
+}
 
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
-        }
-        
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-10px); }
-          75% { transform: translateX(10px); }
-        }
-      `}</style>
-    </div>
+function App() {
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/welcome" element={!session ? <Welcome /> : <Navigate to="/" />} />
+        <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
+        <Route path="/profile" element={session ? <Layout><Profile /></Layout> : <Navigate to="/welcome" />} />
+        {/* Dashboard is the new Index Route */}
+        <Route path="/" element={session ? <Layout><Dashboard /></Layout> : <Navigate to="/welcome" />} />
+        {/* Analyze is now a separate page */}
+        <Route path="/analyze" element={session ? <Layout><Home /></Layout> : <Navigate to="/welcome" />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
