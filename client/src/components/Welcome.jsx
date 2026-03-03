@@ -43,7 +43,7 @@ export default function Welcome() {
             </Link>
 
             <p style={{ marginTop: '2rem', fontSize: '0.9rem', color: '#9CA3AF' }}>
-                Already have an account? <Link to="/login" style={{ color: '#84CC16', fontWeight: 'bold' }}>Log In</Link>
+                Don't have an account? <Link to="/signup" style={{ color: '#84CC16', fontWeight: 'bold' }}>Sign up</Link>
             </p>
         </div>
     );

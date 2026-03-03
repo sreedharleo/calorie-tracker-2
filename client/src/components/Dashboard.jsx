@@ -31,13 +31,14 @@ export default function Dashboard() {
                 setUserProfile(profile);
 
                 // Fetch Logs
-                const { data: logs, error } = await supabase
+                const { data: logs, error: fetchError } = await supabase
                     .from('analysis_logs')
                     .select('*')
                     .eq('user_id', user.id)
                     .order('created_at', { ascending: false });
                 // Note: removed limit(5) to get all for daily calculation, or we should filter by date in query
 
+                if (fetchError) console.error('Error fetching logs:', fetchError);
                 if (logs) {
                     setRecentLogs(logs.slice(0, 5));
 
@@ -81,11 +82,35 @@ export default function Dashboard() {
                     <h2 style={{ fontSize: '1.75rem', marginBottom: '0.25rem' }}>Hello, {userProfile?.username || 'User'}!</h2>
                     <p style={{ color: 'var(--text-muted)' }}>Keep up the good work!</p>
                 </div>
-                <Link to="/profile">
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '1.2rem' }}>👤</span>
-                    </div>
-                </Link>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button onClick={async () => {
+                        try {
+                            const { data: { session } } = await supabase.auth.getSession();
+                            const token = session?.access_token;
+                            const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/report.pdf`, {
+                                method: 'GET',
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            if (!resp.ok) throw new Error('Failed to download report');
+                            const blob = await resp.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `report_${userProfile?.id || 'user'}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            window.URL.revokeObjectURL(url);
+                        } catch (err) {
+                            alert('Could not download report: ' + err.message);
+                        }
+                    }} className="btn btn-outline" style={{ padding: '0.5rem 0.75rem' }}>Download PDF Report</button>
+                    <Link to="/profile">
+                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '1.2rem' }}>👤</span>
+                        </div>
+                    </Link>
+                </div>
             </div>
 
             {/* Hero Card - Daily Progress */}

@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard';
 
 import Layout from './components/Layout';
 import Welcome from './components/Welcome';
+import Signup from './components/Signup';
 import { compressImage } from './utils/imageUtils';
 
 function Home() {
@@ -43,7 +44,8 @@ function Home() {
         const res = await fetch(`${API_URL}/`);
         if (res.ok) setServerStatus('online');
         else setServerStatus('offline');
-      } catch (e) {
+      } catch (error) {
+        console.error('Server ping failed', error);
         setServerStatus('offline');
       }
     };
@@ -89,8 +91,9 @@ function Home() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
-        } catch (e) {
+        } catch (jsonError) {
           // Response was not JSON
+          console.warn('Non-JSON error response', jsonError);
         }
         throw new Error(errorMessage);
       }
@@ -211,6 +214,7 @@ function App() {
       <Routes>
         <Route path="/welcome" element={!session ? <Welcome /> : <Navigate to="/" />} />
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
+        <Route path="/signup" element={!session ? <Signup /> : <Navigate to="/" />} />
         <Route path="/profile" element={session ? <Layout><Profile /></Layout> : <Navigate to="/welcome" />} />
         {/* Dashboard is the new Index Route */}
         <Route path="/" element={session ? <Layout><Dashboard /></Layout> : <Navigate to="/welcome" />} />
